@@ -1,0 +1,77 @@
+# Variables:
+############
+
+LATEX = @LATEX@
+LATEX_FLAGS += -interaction=nonstopmode --shell-escape
+LATEXMK = @LATEXMK@
+LATEXMK_FLAGS += -latex="latex $(LATEX_FLAGS)" -pdfps -bibtex -use-make \
+		-halt-on-error
+DVIPS = @DVIPS@
+
+srcdir = @srcdir@
+
+CLEAN_TARGETS = *~
+DISTCLEAN_TARGETS =
+
+target = template
+
+.DEFAULT_GOAL = all
+
+
+# Phony rules:
+##############
+
+.PHONY: all clean distclean 
+
+# SECONDARY with no prerequisites causes all targets to be treated as
+#   secondary (i.e., no target is removed because it is considered
+#   intermediate).
+.SECONDARY:
+
+all: $(target).pdf
+
+clean:
+	$(LATEXMK) -CA
+	$(RM) -v $(CLEAN_TARGETS)
+
+distclean: clean
+	$(RM) -v $(DISTCLEAN_TARGETS)
+
+## @TODO For consistency, switch from cat to printf.  See
+##   ppt/module.mk.  (cat has trouble with newlines etc.)
+
+tag: $(target).pdf
+	git tag -a "v$(shell cat VERSION)" \
+		-m "Version $(shell cat VERSION)" \
+	&& git push --tags \
+	&& mv $(target).pdf "$(target)-$(shell cat VERSION).pdf"
+
+
+# Pattern rules:
+################
+
+# The --shell-escape argument is for Inkscape's process for converting
+#   SVG to EPS used in LaTeX files.
+%.pdf: %.tex
+	$(LATEXMK) $(LATEXMK_FLAGS) $<
+
+
+# Explicit rules:
+#################
+
+# Final document:
+#$(target).pdf: $(target).tex $(target).bib $(TABLES) $(FIGS)
+$(target).pdf: $(target).tex
+
+
+# Recreate the Makefile, etc.:
+
+configure: configure.ac aclocal.m4
+	cd '$(srcdir)' && autoconf
+
+Makefile: Makefile.in config.status
+	./config.status
+
+config.status: configure
+	./config.status --recheck
+
